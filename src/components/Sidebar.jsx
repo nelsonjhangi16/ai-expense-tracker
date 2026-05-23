@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import {
   LayoutDashboard, Wallet, PiggyBank,
-  Target, Settings, LogOut, X, Menu,
+  Target, Settings, LogOut, X,
 } from "lucide-react";
 
 const NAV_LINKS = [
@@ -14,18 +14,29 @@ const NAV_LINKS = [
   { to: "/settings",  icon: <Settings        size={19} />, label: "Settings"  },
 ];
 
-// expose toggle globally so Navbar can trigger it
 let globalToggleSidebar = null;
 export function toggleMobileSidebar() {
   if (globalToggleSidebar) globalToggleSidebar();
 }
 
 function Sidebar() {
-  const { user, logout }   = useAuth();
-  const navigate           = useNavigate();
-  const [open, setOpen]    = useState(false);
+  const { user, logout }  = useAuth();
+  const navigate          = useNavigate();
+  const [open, setOpen]   = useState(false);
 
   globalToggleSidebar = () => setOpen((v) => !v);
+
+  // ── LOCK BODY SCROLL WHEN SIDEBAR OPEN ──
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [open]);
 
   const initials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
@@ -41,7 +52,7 @@ function Sidebar() {
 
   return (
     <>
-      {/* ── MOBILE OVERLAY ── */}
+      {/* OVERLAY */}
       {open && (
         <div
           className="sidebar-overlay"
@@ -49,7 +60,7 @@ function Sidebar() {
         />
       )}
 
-      {/* ── SIDEBAR ── */}
+      {/* SIDEBAR */}
       <div className={`sidebar ${open ? "sidebar-open" : ""}`}>
 
         {/* BRAND */}
@@ -61,7 +72,6 @@ function Sidebar() {
             <span>Expense</span>
             <b>Tracker</b>
           </div>
-          {/* Mobile close button */}
           <button
             className="sidebar-close-btn"
             onClick={() => setOpen(false)}
