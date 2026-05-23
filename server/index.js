@@ -18,34 +18,51 @@ app.use(cors({
 app.options("*", cors());
 app.use(express.json());
 
-// ── CACHED MONGODB CONNECTION ──
-let isConnected = false;
+// ── MONGODB CONNECTION — Vercel safe ──
+const MONGO_URI = process.env.MONGO_URI;
+
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 async function connectDB() {
-  if (isConnected) return;
+  if (cached.conn) {
+    return cached.conn;
+  }
 
-  try {
-    mongoose.set("bufferCommands", false);
-    await mongoose.connect(process.env.MONGO_URI, {
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands:          false,
       serverSelectionTimeoutMS: 10000,
       socketTimeoutMS:          45000,
       maxPoolSize:              10,
-    });
-    isConnected = true;
-    console.log("✅ MongoDB connected successfully");
-  } catch (err) {
-    isConnected = false;
-    console.error("❌ MongoDB connection failed:", err.message);
-    throw err;
+    };
+
+    cached.promise = mongoose
+      .connect(MONGO_URI, opts)
+      .then((mongoose) => {
+        console.log("✅ MongoDB connected");
+        return mongoose;
+      })
+      .catch((err) => {
+        cached.promise = null;
+        console.error("❌ MongoDB error:", err.message);
+        throw err;
+      });
   }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
 }
 
-// ── MIDDLEWARE TO ENSURE DB CONNECTION ──
+// ── CONNECT BEFORE EVERY REQUEST ──
 app.use(async (req, res, next) => {
   try {
     await connectDB();
     next();
   } catch (err) {
+    console.error("DB connection error:", err.message);
     res.status(500).json({ message: "Database connection failed" });
   }
 });
@@ -56,7 +73,11 @@ app.use("/api/data", dataRoutes);
 
 // ── HEALTH CHECK ──
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Server is running", dbConnected: isConnected });
+  res.json({
+    status:      "ok",
+    message:     "Server is running",
+    dbConnected: mongoose.connection.readyState === 1,
+  });
 });
 
 // ── EXPORT FOR VERCEL ──
