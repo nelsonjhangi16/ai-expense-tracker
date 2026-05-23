@@ -57,9 +57,7 @@ body {
 }
 
 .page-content {
-  flex: 1;
   padding: 90px 24px 24px;
-  overflow-y: auto;
 }
 
 /* ================= SIDEBAR ================= */
@@ -4443,4 +4441,19 @@ body, .stat-card, .chart-card, .expense-card, button, input, .main-content {
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+
+
+
+
+@media (max-width: 768px) {
+  .page-content {
+    padding: 80px 16px 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-content {
+    padding: 75px 12px 16px !important;
+  }
 }
