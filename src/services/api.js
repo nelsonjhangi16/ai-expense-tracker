@@ -1,4 +1,4 @@
-const BASE = "http://localhost:5000/api";
+const BASE = "https://ai-expense-tracker-backend-psi.vercel.app/api";
 
 const getToken = () => localStorage.getItem("token");
 
