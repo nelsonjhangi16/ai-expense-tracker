@@ -34,9 +34,15 @@ function Income({ toast }) {
 
   const { incomes, setIncomes, search, fmt, currency } = useApp();
 
+const getCurrentDateTime = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now - offset).toISOString().slice(0, 16);
+  };
+
   const [form, setForm] = useState({
     title:"", amount:"", category:"Salary",
-    date:"", note:"", recurring:"none",
+    date: getCurrentDateTime(), note:"", recurring:"none",
   });
   const [editId,   setEditId]   = useState(null);
   const [editData, setEditData] = useState({});
@@ -289,11 +295,17 @@ function Income({ toast }) {
             >
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            <input
-              type="datetime-local"
-              value={form.date}
-              onChange={(e) => setForm({ ...form, date: e.target.value })}
-            />
+          <input
+  type="datetime-local"
+  value={form.date}
+  max={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
+  onChange={(e) => {
+    const selected = new Date(e.target.value).getTime();
+    const now      = new Date().getTime();
+    if (selected > now) return; // block future dates
+    setForm({ ...form, date: e.target.value });
+  }}
+/>
             <input
               type="text"
               placeholder="Note (optional)"
@@ -389,22 +401,23 @@ function Income({ toast }) {
       </div>
 
       {/* ── TOOLBAR ── */}
-      <div className="exp-toolbar" style={{ marginBottom: 16 }}>
-        <div className="exp-filters">
-          <DateRangeFilter
-            active={!!dateRange}
-            onApply={(range) => setDateRange(range)}
-            onClear={() => setDateRange(null)}
-          />
-        </div>
-        {filtered.length > 0 && (
-          <div className="exp-summary">
-            <span className="exp-summary-count">{filtered.length} entries</span>
-            <span className="exp-summary-divider" />
-            <span className="exp-summary-total">{fmt(totalFiltered)}</span>
-          </div>
-        )}
-      </div>
+ {/* ── TOOLBAR ── */}
+<div className="exp-toolbar" style={{ marginBottom: 16 }}>
+  <div className="exp-filters" style={{ position: "relative", zIndex: 100 }}>
+    <DateRangeFilter
+      active={!!dateRange}
+      onApply={(range) => setDateRange(range)}
+      onClear={() => setDateRange(null)}
+    />
+  </div>
+  {filtered.length > 0 && (
+    <div className="exp-summary">
+      <span className="exp-summary-count">{filtered.length} entries</span>
+      <span className="exp-summary-divider" />
+      <span className="exp-summary-total">{fmt(totalFiltered)}</span>
+    </div>
+  )}
+</div>
 
       {/* ── DATE RANGE INFO ── */}
       {dateRange && (

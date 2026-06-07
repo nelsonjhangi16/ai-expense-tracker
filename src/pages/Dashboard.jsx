@@ -136,47 +136,62 @@ function Dashboard() {
   }, [filteredExpenses]);
 
   // ================= MONTHLY EXPENSES =================
-  const monthlyData = useMemo(() => {
-    const map = {};
-    filteredExpenses.forEach((item) => {
-      if (!item.date) return;
-      const date = new Date(item.date);
-      if (isNaN(date.getTime())) return;
-      const label = dateFilter === "month"
-        ? date.toLocaleString("default", { day: "numeric", month: "short" })
-        : date.toLocaleString("default", { month: "short" });
-      map[label] = (map[label] || 0) + Number(item.amount || 0);
-    });
-    return Object.keys(map).map((key) => ({ month: key, amount: map[key] }));
-  }, [filteredExpenses, dateFilter]);
+const monthlyData = useMemo(() => {
+  const map = {};
+  filteredExpenses.forEach((item) => {
+    if (!item.date) return;
+    const date = new Date(item.date);
+    if (isNaN(date.getTime())) return;
+    const label = dateFilter === "month"
+      ? date.toLocaleString("default", { day: "numeric", month: "short" })
+      : date.toLocaleString("default", { month: "short" });
+    if (!map[label]) map[label] = { amount: 0, timestamp: date.getTime() };
+    map[label].amount += Number(item.amount || 0);
+  });
+
+  // ── SORT OLDEST TO NEWEST (left to right = past to present) ──
+  return Object.entries(map)
+    .map(([key, val]) => ({ month: key, amount: val.amount, timestamp: val.timestamp }))
+    .sort((a, b) => a.timestamp - b.timestamp);
+}, [filteredExpenses, dateFilter]);
 
   // ================= COMBINED CHART DATA =================
-  const combinedData = useMemo(() => {
-    const monthOrder = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const monthMap   = {};
+const combinedData = useMemo(() => {
+  const monthOrder = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthMap   = {};
 
-    dateFilteredExpenses.forEach((item) => {
-      if (!item.date) return;
-      const date = new Date(item.date);
-      if (isNaN(date.getTime())) return;
-      const key = date.toLocaleString("default", { month: "short" });
-      if (!monthMap[key]) monthMap[key] = { month: key, Income: 0, Expenses: 0 };
-      monthMap[key].Expenses += Number(item.amount || 0);
-    });
+  dateFilteredExpenses.forEach((item) => {
+    if (!item.date) return;
+    const date = new Date(item.date);
+    if (isNaN(date.getTime())) return;
+    const key = dateFilter === "month"
+      ? date.toLocaleString("default", { day: "numeric", month: "short" })
+      : date.toLocaleString("default", { month: "short" });
+    if (!monthMap[key]) monthMap[key] = { month: key, Income: 0, Expenses: 0, timestamp: date.getTime() };
+    monthMap[key].Expenses += Number(item.amount || 0);
+  });
 
-    dateFilteredIncomes.forEach((item) => {
-      if (!item.date) return;
-      const date = new Date(item.date);
-      if (isNaN(date.getTime())) return;
-      const key = date.toLocaleString("default", { month: "short" });
-      if (!monthMap[key]) monthMap[key] = { month: key, Income: 0, Expenses: 0 };
-      monthMap[key].Income += Number(item.amount || 0);
-    });
+  dateFilteredIncomes.forEach((item) => {
+    if (!item.date) return;
+    const date = new Date(item.date);
+    if (isNaN(date.getTime())) return;
+    const key = dateFilter === "month"
+      ? date.toLocaleString("default", { day: "numeric", month: "short" })
+      : date.toLocaleString("default", { month: "short" });
+    if (!monthMap[key]) monthMap[key] = { month: key, Income: 0, Expenses: 0, timestamp: date.getTime() };
+    monthMap[key].Income += Number(item.amount || 0);
+  });
 
-    return Object.values(monthMap).sort(
-      (a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month)
-    );
-  }, [dateFilteredExpenses, dateFilteredIncomes]);
+  const data = Object.values(monthMap);
+
+  if (dateFilter === "month") {
+    return data.sort((a, b) => a.timestamp - b.timestamp);
+  }
+
+  return data.sort(
+    (a, b) => monthOrder.indexOf(a.month) - monthOrder.indexOf(b.month)
+  );
+}, [dateFilteredExpenses, dateFilteredIncomes, dateFilter]);
 
   const COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#8b5cf6","#f97316","#ec4899"];
 
@@ -366,59 +381,92 @@ function Dashboard() {
           </div>
 
           {/* ── COMBINED INCOME VS EXPENSES ── */}
-          <div className="chart-card" style={{ marginTop: 10 }}>
-            <div className="monthly-chart-header">
-              <div>
-                <h3>Income vs Expenses</h3>
-                <p className="chart-sub">Monthly comparison over time</p>
-              </div>
-              {combinedData.length > 0 && (
-                <div style={{ display: "flex", gap: 12 }}>
-                  <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
-                    Income
-                  </span>
-                  <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
-                    Expenses
-                  </span>
-                </div>
-              )}
-            </div>
+          {/* ── COMBINED INCOME VS EXPENSES ── */}
+<div className="chart-card" style={{ marginTop: 10 }}>
+  <div className="monthly-chart-header">
+    <div>
+      <h3>Income vs Expenses</h3>
+      <p className="chart-sub">
+        {dateFilter === "month" ? "Daily comparison" : "Monthly comparison"}
+      </p>
+    </div>
+    {combinedData.length > 0 && (
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: "#22c55e", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#22c55e", display: "inline-block" }} />
+          {fmt(dateFilteredIncomes.reduce((s, i) => s + Number(i.amount || 0), 0))}
+        </span>
+        <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#ef4444", display: "inline-block" }} />
+          {fmt(dateFilteredExpenses.reduce((s, e) => s + Number(e.amount || 0), 0))}
+        </span>
+      </div>
+    )}
+  </div>
 
-            {combinedData.length === 0 ? (
-              <EmptyState type="dashboard" title="No data" subtitle="No income or expenses in this period" />
-            ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={combinedData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="incomeGradDB" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor="#22c55e" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#22c55e" stopOpacity={0}    />
-                    </linearGradient>
-                    <linearGradient id="expenseGradDB" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"   stopColor="#ef4444" stopOpacity={0.2} />
-                      <stop offset="100%" stopColor="#ef4444" stopOpacity={0}   />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} axisLine={false} tickLine={false} dy={8} />
-                  <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} axisLine={false} tickLine={false}
-                    tickFormatter={(v) => `${currency}${v >= 1000 ? (v/1000).toFixed(1)+"k" : v}`}
-                  />
-                  <Tooltip content={<CombinedTooltip fmt={fmt} />} />
-                  <Area type="monotone" dataKey="Income"   stroke="#22c55e" strokeWidth={2.5} fill="url(#incomeGradDB)"
-                    dot={{ r: 4, fill: "#22c55e", strokeWidth: 2, stroke: "var(--card-bg)" }}
-                    activeDot={{ r: 6, fill: "#22c55e", stroke: "var(--card-bg)", strokeWidth: 2 }}
-                  />
-                  <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2.5} fill="url(#expenseGradDB)"
-                    dot={{ r: 4, fill: "#ef4444", strokeWidth: 2, stroke: "var(--card-bg)" }}
-                    activeDot={{ r: 6, fill: "#ef4444", stroke: "var(--card-bg)", strokeWidth: 2 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+  {combinedData.length === 0 ? (
+    <EmptyState type="dashboard" title="No data" subtitle="No income or expenses in this period" />
+  ) : combinedData.length === 1 ? (
+    /* ── SINGLE ENTRY — show bar chart instead ── */
+    <div style={{ padding: "20px 0" }}>
+      {combinedData.map((d) => (
+        <div key={d.month} style={{ marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 12, textAlign: "center" }}>{d.month}</p>
+          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ textAlign: "center", padding: "16px 24px", borderRadius: 16, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)" }}>
+              <p style={{ fontSize: 12, color: "#22c55e", fontWeight: 600, margin: "0 0 6px" }}>💰 Income</p>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: "#22c55e", margin: 0 }}>{fmt(d.Income)}</h3>
+            </div>
+            <div style={{ textAlign: "center", padding: "16px 24px", borderRadius: 16, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
+              <p style={{ fontSize: 12, color: "#ef4444", fontWeight: 600, margin: "0 0 6px" }}>💸 Expenses</p>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: "#ef4444", margin: 0 }}>{fmt(d.Expenses)}</h3>
+            </div>
+            <div style={{ textAlign: "center", padding: "16px 24px", borderRadius: 16,
+              background: d.Income - d.Expenses >= 0 ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+              border: `1px solid ${d.Income - d.Expenses >= 0 ? "rgba(34,197,94,0.2)" : "rgba(239,68,68,0.2)"}`,
+            }}>
+              <p style={{ fontSize: 12, color: d.Income - d.Expenses >= 0 ? "#22c55e" : "#ef4444", fontWeight: 600, margin: "0 0 6px" }}>
+                {d.Income - d.Expenses >= 0 ? "✅ Saved" : "⚠️ Deficit"}
+              </p>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: d.Income - d.Expenses >= 0 ? "#22c55e" : "#ef4444", margin: 0 }}>
+                {fmt(Math.abs(d.Income - d.Expenses))}
+              </h3>
+            </div>
           </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={combinedData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <defs>
+          <linearGradient id="incomeGradDB" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#22c55e" stopOpacity={0.25} />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity={0}    />
+          </linearGradient>
+          <linearGradient id="expenseGradDB" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="#ef4444" stopOpacity={0.2} />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity={0}   />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+        <XAxis dataKey="month" tick={{ fill: "var(--text-secondary)", fontSize: 11 }} axisLine={false} tickLine={false} dy={8} />
+        <YAxis tick={{ fill: "var(--text-secondary)", fontSize: 11 }} axisLine={false} tickLine={false}
+          tickFormatter={(v) => `${currency}${v >= 1000 ? (v/1000).toFixed(1)+"k" : v}`}
+        />
+        <Tooltip content={<CombinedTooltip fmt={fmt} />} />
+        <Area type="monotone" dataKey="Income"   stroke="#22c55e" strokeWidth={2.5} fill="url(#incomeGradDB)"
+          dot={{ r: 4, fill: "#22c55e", strokeWidth: 2, stroke: "var(--card-bg)" }}
+          activeDot={{ r: 6, fill: "#22c55e", stroke: "var(--card-bg)", strokeWidth: 2 }}
+        />
+        <Area type="monotone" dataKey="Expenses" stroke="#ef4444" strokeWidth={2.5} fill="url(#expenseGradDB)"
+          dot={{ r: 4, fill: "#ef4444", strokeWidth: 2, stroke: "var(--card-bg)" }}
+          activeDot={{ r: 6, fill: "#ef4444", stroke: "var(--card-bg)", strokeWidth: 2 }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  )}
+</div>
 
           {/* ── BUDGET vs EXPENSES ── */}
           <div className="chart-card budget-chart">

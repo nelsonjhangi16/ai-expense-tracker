@@ -366,8 +366,7 @@ function Settings({ toast }) {
               </span>
             </div>
           </div>
-
-          <div className="setting-item" style={{ marginTop: 18 }}>
+<div className="setting-item" style={{ marginTop: 18 }}>
             <label>Full Name</label>
             <div className="setting-input-wrap">
               <User size={13} className="setting-input-icon" />
@@ -382,15 +381,19 @@ function Settings({ toast }) {
 
           <div className="setting-item">
             <label>Email Address</label>
-            <div className="setting-input-wrap">
+            <div className="setting-input-wrap" style={{ opacity: 0.6, cursor: "not-allowed" }}>
               <Mail size={13} className="setting-input-icon" />
               <input
                 type="email"
-                placeholder="Enter your email"
                 value={profileForm.email}
-                onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                readOnly
+                disabled
+                style={{ cursor: "not-allowed" }}
               />
             </div>
+            <p className="setting-hint" style={{ margin: "6px 0 0" }}>
+              🔒 Email cannot be changed
+            </p>
           </div>
 
           <button
@@ -413,7 +416,7 @@ function Settings({ toast }) {
             </p>
           )}
         </div>
-
+        
         {/* FINANCE */}
         <div className="settings-card settings-finance-center">
           <div className="settings-card-title"><DollarSign size={15} />Finance</div>

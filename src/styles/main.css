@@ -4457,3 +4457,27 @@ body, .stat-card, .chart-card, .expense-card, button, input, .main-content {
     padding: 75px 12px 16px !important;
   }
 }
+
+
+
+
+/* ── DATE RANGE FILTER POSITION FIX ── */
+.exp-filters {
+  position: relative;
+  z-index: 100;
+}
+
+.drf-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 1001;
+}
+
+@media (max-width: 768px) {
+  .drf-panel {
+    left: 0;
+    right: auto;
+    width: 240px;
+  }
+}

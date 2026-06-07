@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FaPlus } from "react-icons/fa";
 import { categorizeExpense } from "../utils/categorizeExpense";
 
 function ExpenseForm({ addExpense }) {
 
-  const getCurrentDateTime = () => new Date().toISOString().slice(0, 16);
+  // ── LIVE CURRENT DATE TIME ──
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now - offset).toISOString().slice(0, 16);
+  };
 
   const [form, setForm] = useState({
     title:     "",
@@ -14,8 +19,32 @@ function ExpenseForm({ addExpense }) {
     recurring: "none",
   });
 
+  // ── UPDATE DATE EVERY MINUTE IF USER HASN'T CHANGED IT ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setForm((prev) => {
+        // Only auto-update if date is close to current time
+        const prevDate  = new Date(prev.date).getTime();
+        const nowTime   = new Date().getTime();
+        const diffMins  = Math.abs(nowTime - prevDate) / 60000;
+        if (diffMins < 2) {
+          return { ...prev, date: getCurrentDateTime() };
+        }
+        return prev;
+      });
+    }, 60000); // update every minute
+    return () => clearInterval(interval);
+  }, []);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    // ── BLOCK FUTURE DATES ──
+    if (name === "date") {
+      const selected = new Date(value).getTime();
+      const now      = new Date().getTime();
+      if (selected > now) return; // block future
+    }
 
     let updatedForm = { ...form, [name]: value };
 
@@ -33,12 +62,12 @@ function ExpenseForm({ addExpense }) {
     const aiCategory = categorizeExpense(form.title);
 
     addExpense({
-      title:        form.title,
-      amount:       form.amount,
-      category:     form.category || aiCategory,
-      aiGenerated:  !form.category,
-      date:         form.date || new Date().toISOString(),
-      recurring:    form.recurring,
+      title:       form.title,
+      amount:      form.amount,
+      category:    form.category || aiCategory,
+      aiGenerated: !form.category,
+      date:        form.date || new Date().toISOString(),
+      recurring:   form.recurring,
     });
 
     setForm({
@@ -66,7 +95,7 @@ function ExpenseForm({ addExpense }) {
         <input
           type="text"
           name="category"
-          placeholder="Category"
+          placeholder="Category (auto-detected)"
           value={form.category}
           onChange={handleChange}
         />
@@ -81,6 +110,7 @@ function ExpenseForm({ addExpense }) {
           type="datetime-local"
           name="date"
           value={form.date}
+          max={getCurrentDateTime()}
           onChange={handleChange}
         />
       </div>
