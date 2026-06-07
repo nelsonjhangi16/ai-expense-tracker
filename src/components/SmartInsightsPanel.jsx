@@ -1,37 +1,83 @@
 import { useMemo } from "react";
-import { TrendingUp, AlertTriangle, Info, Zap } from "lucide-react";
+import { TrendingUp, AlertTriangle, Info, Zap, CheckCircle } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 function SmartInsightsPanel({ expenses = [] }) {
 
-  const { fmt } = useApp();
+  const { fmt, incomes, budgets, settings } = useApp();
 
-  // ================= TOTAL =================
-  const total = useMemo(() =>
+  // ── TOTALS ──
+  const totalExpenses = useMemo(() =>
     expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0),
     [expenses]
   );
 
-  // ================= CATEGORY MAP =================
+  const totalIncome = useMemo(() =>
+    incomes.reduce((sum, i) => sum + Number(i.amount || 0), 0),
+    [incomes]
+  );
+
+  const monthlyBudget = Number(settings.monthlyBudget || 0);
+
+  // ── THIS MONTH ──
+  const now = new Date();
+  const thisMonthExpenses = useMemo(() =>
+    expenses.filter((e) => {
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }), [expenses]
+  );
+
+  const thisMonthIncome = useMemo(() =>
+    incomes.filter((i) => {
+      const d = new Date(i.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }), [incomes]
+  );
+
+  const thisMonthSpent  = thisMonthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const thisMonthEarned = thisMonthIncome.reduce((s, i) => s + Number(i.amount || 0), 0);
+  const thisMonthSaved  = thisMonthEarned - thisMonthSpent;
+
+  // ── LAST MONTH ──
+  const lastMonth      = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonthExpenses = useMemo(() =>
+    expenses.filter((e) => {
+      const d = new Date(e.date);
+      return d.getMonth() === lastMonth.getMonth() && d.getFullYear() === lastMonth.getFullYear();
+    }), [expenses]
+  );
+  const lastMonthSpent = lastMonthExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+
+  // ── CATEGORY MAP ──
   const categoryMap = useMemo(() => {
     const map = {};
-    expenses.forEach((e) => {
+    thisMonthExpenses.forEach((e) => {
       const key = e.category || "Other";
       map[key] = (map[key] || 0) + Number(e.amount || 0);
     });
     return map;
-  }, [expenses]);
+  }, [thisMonthExpenses]);
+
+  // ── BUDGET MAP ──
+  const budgetMap = useMemo(() => {
+    const map = {};
+    budgets.forEach((b) => {
+      map[b.category?.toLowerCase()] = Number(b.amount || 0);
+    });
+    return map;
+  }, [budgets]);
 
   const topCategory = Object.entries(categoryMap).sort((a, b) => b[1] - a[1])[0];
 
   const highestExpense = useMemo(() => {
-    if (!expenses.length) return null;
-    return expenses.reduce((max, e) =>
+    if (!thisMonthExpenses.length) return null;
+    return thisMonthExpenses.reduce((max, e) =>
       Number(e.amount) > Number(max.amount) ? e : max
     );
-  }, [expenses]);
+  }, [thisMonthExpenses]);
 
-  // ================= SMART ALERT ENGINE =================
+  // ── SMART ALERTS ──
   const alerts = useMemo(() => {
     const list = [];
 
@@ -39,82 +85,99 @@ function SmartInsightsPanel({ expenses = [] }) {
       return [{ type: "info", text: "Start adding expenses to unlock AI insights" }];
     }
 
-    const avg = total / expenses.length;
+    const avg = thisMonthSpent / (thisMonthExpenses.length || 1);
 
-    // 1
-    if (total > 100000)
-      list.push({ type: "danger", text: `Extreme spending detected — ${fmt(total)} total` });
+    // 1 — savings rate
+    if (thisMonthEarned > 0) {
+      const savingsRate = (thisMonthSaved / thisMonthEarned) * 100;
+      if (savingsRate >= 20) {
+        list.push({ type: "success", text: `Great savings! You saved ${fmt(thisMonthSaved)} (${savingsRate.toFixed(0)}% of income) this month` });
+      } else if (savingsRate > 0) {
+        list.push({ type: "info", text: `You saved ${fmt(thisMonthSaved)} (${savingsRate.toFixed(0)}% of income) this month` });
+      } else if (thisMonthSaved < 0) {
+        list.push({ type: "danger", text: `Overspending! Expenses exceed income by ${fmt(Math.abs(thisMonthSaved))} this month` });
+      }
+    }
 
-    // 2
-    if (avg > 5000)
-      list.push({ type: "warning", text: `Average spending is unusually high — ${fmt(avg)} per transaction` });
+    // 2 — monthly budget
+    if (monthlyBudget > 0) {
+      const budgetUsed = (thisMonthSpent / monthlyBudget) * 100;
+      if (budgetUsed >= 100) {
+        list.push({ type: "danger", text: `Monthly budget exceeded! Spent ${fmt(thisMonthSpent)} of ${fmt(monthlyBudget)} budget` });
+      } else if (budgetUsed >= 75) {
+        list.push({ type: "warning", text: `Budget alert: Used ${budgetUsed.toFixed(0)}% of monthly budget — ${fmt(monthlyBudget - thisMonthSpent)} remaining` });
+      } else if (budgetUsed > 0) {
+        list.push({ type: "success", text: `Budget on track — ${fmt(monthlyBudget - thisMonthSpent)} remaining of ${fmt(monthlyBudget)}` });
+      }
+    }
 
-    // 3
-    if (highestExpense)
-      list.push({
-        type: "info",
-        text: `Highest expense: ${highestExpense.title} — ${fmt(highestExpense.amount)}`,
-      });
+    // 3 — category vs budget
+    Object.entries(categoryMap).forEach(([cat, spent]) => {
+      const budgetAmt = budgetMap[cat.toLowerCase()];
+      if (budgetAmt && spent > budgetAmt) {
+        list.push({ type: "warning", text: `${cat} budget exceeded — spent ${fmt(spent)} of ${fmt(budgetAmt)} budget` });
+      } else if (budgetAmt && spent > budgetAmt * 0.75) {
+        list.push({ type: "warning", text: `${cat} nearing budget limit — ${fmt(spent)} of ${fmt(budgetAmt)}` });
+      }
+    });
 
-    // 4
-    if (topCategory)
-      list.push({
-        type: "info",
-        text: `Top spending category: ${topCategory[0]} — ${fmt(topCategory[1])}`,
-      });
+    // 4 — top category vs budget check
+    if (topCategory) {
+      const budgetAmt = budgetMap[topCategory[0].toLowerCase()];
+      if (!budgetAmt) {
+        list.push({ type: "info", text: `Top spending: ${topCategory[0]} — ${fmt(topCategory[1])} this month` });
+      }
+    }
 
-    // 5
-    const foodSpent = categoryMap["Food"] || 0;
-    if (foodSpent > total * 0.4)
-      list.push({
-        type: "warning",
-        text: `Food spending is very high — ${fmt(foodSpent)} (${Math.round((foodSpent / total) * 100)}% of total)`,
-      });
+    // 5 — vs last month
+    if (lastMonthSpent > 0 && thisMonthSpent > 0) {
+      const diff    = thisMonthSpent - lastMonthSpent;
+      const diffPct = Math.abs((diff / lastMonthSpent) * 100).toFixed(0);
+      if (diff > 0) {
+        list.push({ type: "warning", text: `Spending up ${diffPct}% vs last month (${fmt(diff)} more)` });
+      } else {
+        list.push({ type: "success", text: `Spending down ${diffPct}% vs last month — saved ${fmt(Math.abs(diff))} more!` });
+      }
+    }
 
-    // 6
-    if (expenses.length > 20)
-      list.push({
-        type: "info",
-        text: `High transaction activity — ${expenses.length} transactions recorded`,
-      });
+    // 6 — highest single expense
+    if (highestExpense) {
+      list.push({ type: "info", text: `Highest expense this month: "${highestExpense.title}" — ${fmt(highestExpense.amount)}` });
+    }
 
-    // 7
-    const last7 = expenses.slice(-7).reduce((s, e) => s + Number(e.amount || 0), 0);
-    if (last7 > total * 0.5)
-      list.push({
-        type: "warning",
-        text: `Recent spending spike — ${fmt(last7)} in last 7 transactions`,
-      });
+    // 7 — no income recorded
+    if (thisMonthEarned === 0 && thisMonthSpent > 0) {
+      list.push({ type: "warning", text: "No income recorded this month — add income to track savings rate" });
+    }
 
-    // 8
-    const duplicateTitles = new Set();
-    expenses.forEach((e) => duplicateTitles.add(e.title));
-    if (duplicateTitles.size < expenses.length)
-      list.push({ type: "info", text: "Repeated expense patterns found" });
+    // 8 — avg transaction
+    if (avg > 0) {
+      list.push({ type: "info", text: `Average expense this month: ${fmt(avg)} per transaction` });
+    }
 
-    // 9
-    if (total > 50000)
-      list.push({
-        type: "warning",
-        text: `Budget threshold approaching — ${fmt(total)} spent`,
-      });
+    // 9 — income vs expense ratio
+    if (thisMonthEarned > 0 && thisMonthSpent > thisMonthEarned * 0.9) {
+      list.push({ type: "danger", text: `Warning: Expenses are ${Math.round((thisMonthSpent / thisMonthEarned) * 100)}% of your income this month` });
+    }
 
-    // 10
-    if (avg < 1000)
-      list.push({
-        type: "info",
-        text: `Healthy spending — ${fmt(avg)} average per transaction`,
-      });
+    // 10 — no expenses
+    if (thisMonthExpenses.length === 0 && expenses.length > 0) {
+      list.push({ type: "info", text: "No expenses recorded this month yet" });
+    }
 
-    return list;
-  }, [expenses, total, categoryMap, highestExpense, topCategory, fmt]);
+    return list.slice(0, 6); // max 6 insights
+  }, [
+    expenses, thisMonthExpenses, thisMonthSpent, thisMonthEarned,
+    thisMonthSaved, lastMonthSpent, categoryMap, budgetMap,
+    monthlyBudget, topCategory, highestExpense, fmt,
+  ]);
 
   return (
     <div className="ai-panel">
       <div className="ai-header">
         <div>
           <h3>AI Financial Insights</h3>
-          <p>Smart analysis of your spending behavior</p>
+          <p>Smart analysis based on income, budgets & spending</p>
         </div>
         <span className="ai-badge">
           <Zap size={14} /> Live Engine
@@ -127,6 +190,7 @@ function SmartInsightsPanel({ expenses = [] }) {
             <div className="ai-icon">
               {a.type === "danger"  ? <AlertTriangle size={18} /> :
                a.type === "warning" ? <TrendingUp    size={18} /> :
+               a.type === "success" ? <CheckCircle   size={18} /> :
                                       <Info          size={18} />}
             </div>
             <div className="ai-text">{a.text}</div>

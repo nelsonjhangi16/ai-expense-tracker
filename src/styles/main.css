@@ -4481,3 +4481,12 @@ body, .stat-card, .chart-card, .expense-card, button, input, .main-content {
     width: 240px;
   }
 }
+
+
+
+.ai-card.success {
+  border-color: rgba(34,197,94,0.2);
+  background:   rgba(34,197,94,0.06);
+}
+
+.ai-card.success .ai-icon { color: #22c55e; }
