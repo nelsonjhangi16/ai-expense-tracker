@@ -23,25 +23,25 @@ router.post("/register", async (req, res) => {
     if (password.length < 6)
       return res.status(400).json({ message: "Password must be at least 6 characters" });
 
-    const exists = await User.findOne({ email });
-    if (exists)
+    // Block if already verified
+    const existingVerified = await User.findOne({ email, isVerified: true });
+    if (existingVerified)
       return res.status(400).json({ message: "Email already registered" });
 
     // Generate 6-digit code
-    const verifyCode   = Math.floor(100000 + Math.random() * 900000).toString();
-    const codeExpiry   = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeExpiry = Date.now() + 10 * 60 * 1000;
 
-    // Store temp user data in a pending collection using resetToken fields
-    // We'll store it on a temp unverified user
-    let tempUser = await User.findOne({ email, isVerified: false });
-    if (tempUser) {
-      tempUser.name             = name;
-      tempUser.password         = password;
-      tempUser.resetToken       = verifyCode;
-      tempUser.resetTokenExpiry = codeExpiry;
-      await tempUser.save();
+    // Update existing unverified user OR create new one
+    let user = await User.findOne({ email, isVerified: false });
+    if (user) {
+      user.name             = name;
+      user.password         = password;
+      user.resetToken       = verifyCode;
+      user.resetTokenExpiry = codeExpiry;
+      await user.save();
     } else {
-      tempUser = await User.create({
+      user = await User.create({
         name,
         email,
         password,
