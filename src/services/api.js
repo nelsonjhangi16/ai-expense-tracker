@@ -12,6 +12,10 @@ export const registerAPI = (data) =>
   fetch(`${BASE}/auth/register`, { method: "POST", headers: headers(), body: JSON.stringify(data) })
     .then((r) => r.json());
 
+export const verifyEmailAPI = (email, code) =>
+  fetch(`${BASE}/auth/verify-email`, { method: "POST", headers: headers(), body: JSON.stringify({ email, code }) })
+    .then((r) => r.json());
+
 export const loginAPI = (data) =>
   fetch(`${BASE}/auth/login`, { method: "POST", headers: headers(), body: JSON.stringify(data) })
     .then((r) => r.json());

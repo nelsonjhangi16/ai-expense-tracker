@@ -20,6 +20,10 @@ const UserSchema = new mongoose.Schema(
       required:  true,
       minlength: 6,
     },
+    isVerified: {
+      type:    Boolean,
+      default: false,
+    },
     settings: {
       currency:      { type: String,  default: "$"    },
       currencyCode:  { type: String,  default: "USD"  },
@@ -28,9 +32,9 @@ const UserSchema = new mongoose.Schema(
       theme:         { type: String,  default: "dark" },
       flag:          { type: String,  default: "🇺🇸"  },
     },
-    // ── PASSWORD RESET ──
-    resetToken:       { type: String  },
-    resetTokenExpiry: { type: Date    },
+    // ── PASSWORD RESET + EMAIL VERIFY ──
+    resetToken:       { type: String },
+    resetTokenExpiry: { type: Date   },
   },
   { timestamps: true }
 );

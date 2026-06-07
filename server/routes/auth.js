@@ -12,6 +12,7 @@ const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: "30d" });
 
 // ── REGISTER ──
+// ── REGISTER — send verification code first ──
 router.post("/register", async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -26,8 +27,87 @@ router.post("/register", async (req, res) => {
     if (exists)
       return res.status(400).json({ message: "Email already registered" });
 
-    const user = await User.create({ name, email, password });
-    await Data.create({ userId: user._id });
+    // Generate 6-digit code
+    const verifyCode   = Math.floor(100000 + Math.random() * 900000).toString();
+    const codeExpiry   = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Store temp user data in a pending collection using resetToken fields
+    // We'll store it on a temp unverified user
+    let tempUser = await User.findOne({ email, isVerified: false });
+    if (tempUser) {
+      tempUser.name             = name;
+      tempUser.password         = password;
+      tempUser.resetToken       = verifyCode;
+      tempUser.resetTokenExpiry = codeExpiry;
+      await tempUser.save();
+    } else {
+      tempUser = await User.create({
+        name,
+        email,
+        password,
+        isVerified:       false,
+        resetToken:       verifyCode,
+        resetTokenExpiry: codeExpiry,
+      });
+    }
+
+    await sendEmail({
+      to:      email,
+      subject: "Verify Your Expense Tracker Account",
+      html: `
+        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
+          <h2 style="color: #6366f1; margin-bottom: 8px;">Verify Your Email</h2>
+          <p style="color: #64748b; margin-bottom: 24px;">
+            Enter this code to complete your registration:
+          </p>
+          <div style="font-size: 42px; font-weight: 800; letter-spacing: 12px; color: #0f172a;
+            background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center;
+            margin-bottom: 24px;">
+            ${verifyCode}
+          </div>
+          <p style="color: #94a3b8; font-size: 13px;">
+            This code expires in 10 minutes. If you didn't request this, ignore this email.
+          </p>
+        </div>
+      `,
+    });
+
+    res.status(200).json({ message: "Verification code sent", email });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ message: "Server error", error: err.message });
+  }
+});
+
+// ── VERIFY EMAIL CODE ──
+router.post("/verify-email", async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code)
+      return res.status(400).json({ message: "Email and code are required" });
+
+    const user = await User.findOne({
+      email,
+      resetToken:       code,
+      resetTokenExpiry: { $gt: Date.now() },
+      isVerified:       false,
+    });
+
+    if (!user)
+      return res.status(400).json({ message: "Invalid or expired code" });
+
+    // Mark as verified and clear code
+    user.isVerified       = true;
+    user.resetToken       = undefined;
+    user.resetTokenExpiry = undefined;
+    await user.save();
+
+    // Create data record
+    const existingData = await Data.findOne({ userId: user._id });
+    if (!existingData) {
+      await Data.create({ userId: user._id });
+    }
 
     res.status(201).json({
       token: generateToken(user._id),
@@ -39,11 +119,12 @@ router.post("/register", async (req, res) => {
       },
     });
   } catch (err) {
-    console.error("Register error:", err);
-    res.status(500).json({ message: "Server error", error: err.message });
+    console.error("Verify error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 });
 
+// ── LOGIN ──
 // ── LOGIN ──
 router.post("/login", async (req, res) => {
   try {
@@ -55,6 +136,10 @@ router.post("/login", async (req, res) => {
     const user = await User.findOne({ email });
     if (!user)
       return res.status(400).json({ message: "Invalid email or password" });
+
+    // Block unverified users
+    if (!user.isVerified)
+      return res.status(400).json({ message: "Please verify your email first" });
 
     const match = await user.matchPassword(password);
     if (!match)
