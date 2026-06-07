@@ -59,8 +59,14 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  // ── SET USER AFTER VERIFY ──
+const loginWithToken = (token, userData) => {
+  localStorage.setItem("token", token);
+  setUser(userData);
+};
+
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, setUser, loading, login, register, logout, updateProfile, loginWithToken }}>
       {children}
     </AuthContext.Provider>
   );

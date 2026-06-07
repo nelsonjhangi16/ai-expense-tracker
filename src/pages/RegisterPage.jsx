@@ -11,7 +11,7 @@ import {
 function RegisterPage() {
 
   const navigate     = useNavigate();
-  const { login }    = useAuth();
+  const { loginWithToken } = useAuth();
   const { loadData } = useApp();
 
   const [step,    setStep]    = useState("register"); // "register" | "verify"
@@ -46,11 +46,11 @@ function RegisterPage() {
     if (fullCode.length !== 6) { setError("Enter the 6-digit code"); return; }
     setLoading(true);
     const result = await verifyEmailAPI(form.email, fullCode);
-    if (result.token) {
-      localStorage.setItem("token", result.token);
-      await loadData();
-      navigate("/dashboard");
-    } else {
+  if (result.token) {
+  loginWithToken(result.token, result.user);
+  await loadData();
+  navigate("/dashboard");
+} else {
       setError(result.message || "Invalid code");
     }
     setLoading(false);
