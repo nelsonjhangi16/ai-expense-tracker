@@ -23,21 +23,22 @@ function RegisterPage() {
   const [showPw,  setShowPw]  = useState(false);
 
   // ── STEP 1 — REGISTER ──
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (form.password !== form.confirm) { setError("Passwords do not match"); return; }
-    if (form.password.length < 6)       { setError("Password must be at least 6 characters"); return; }
-    setLoading(true);
-    const result = await registerAPI({ name: form.name, email: form.email, password: form.password });
-    if (result.message === "Verification code sent") {
-      setStep("verify");
-      setSuccess(`Verification code sent to ${form.email}`);
-    } else {
-      setError(result.message || "Registration failed");
-    }
-    setLoading(false);
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError("");
+  if (form.password !== form.confirm) { setError("Passwords do not match"); return; }
+  if (form.password.length < 6)       { setError("Password must be at least 6 characters"); return; }
+  setLoading(true);
+  const result = await registerAPI({ name: form.name, email: form.email, password: form.password });
+  if (result.token) {
+    loginWithToken(result.token, result.user);
+    await loadData();
+    navigate("/dashboard");
+  } else {
+    setError(result.message || "Registration failed");
+  }
+  setLoading(false);
+};
 
   // ── STEP 2 — VERIFY CODE ──
   const handleVerify = async () => {
@@ -311,11 +312,11 @@ function RegisterPage() {
               </div>
             </div>
 
-            <button type="submit" className="auth-submit-btn" disabled={loading}>
-              {loading
-                ? "Sending verification code..."
-                : <><span>Create Account</span><ArrowRight size={16} /></>}
-            </button>
+          <button type="submit" className="auth-submit-btn" disabled={loading}>
+  {loading
+    ? "Creating account..."
+    : <><span>Create Account</span><ArrowRight size={16} /></>}
+</button>
 
           </form>
 
