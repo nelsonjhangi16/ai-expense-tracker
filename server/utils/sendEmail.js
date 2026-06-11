@@ -1,21 +1,29 @@
-const { Resend } = require("resend");
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: f }) => f(...args));
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-const sendEmail = async ({ to, subject, html }) => {
-  const { data, error } = await resend.emails.send({
-    from:    "Expense Tracker <onboarding@resend.dev>",
-    to:      [to],
-    subject,
-    html,
+const sendEmail = async ({ to, subject, html, code }) => {
+  const response = await fetch("https://api.emailjs.com/api/v1.0/email/send", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      service_id:  "service_d8r9ryp",
+      template_id: "j99vhey",
+      user_id:     "Lu7S0MKP3hx2GtbdZsf0w",
+      template_params: {
+        email:    to,
+        passcode: code,
+        time:     new Date(Date.now() + 10 * 60 * 1000).toLocaleString(),
+      },
+    }),
   });
 
-  if (error) {
-    console.error("Resend error:", error);
-    throw new Error(error.message);
+  if (!response.ok) {
+    const err = await response.text();
+    console.error("EmailJS error:", err);
+    throw new Error("Failed to send email");
   }
 
-  console.log("✅ Email sent:", data?.id);
+  console.log("✅ Email sent via EmailJS");
 };
 
 module.exports = sendEmail;

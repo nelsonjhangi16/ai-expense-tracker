@@ -51,26 +51,10 @@ router.post("/register", async (req, res) => {
       });
     }
 
-    await sendEmail({
-      to:      email,
-      subject: "Verify Your Expense Tracker Account",
-      html: `
-        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
-          <h2 style="color: #6366f1; margin-bottom: 8px;">Verify Your Email</h2>
-          <p style="color: #64748b; margin-bottom: 24px;">
-            Enter this code to complete your registration:
-          </p>
-          <div style="font-size: 42px; font-weight: 800; letter-spacing: 12px; color: #0f172a;
-            background: #f1f5f9; padding: 20px; border-radius: 12px; text-align: center;
-            margin-bottom: 24px;">
-            ${verifyCode}
-          </div>
-          <p style="color: #94a3b8; font-size: 13px;">
-            This code expires in 10 minutes. If you didn't request this, ignore this email.
-          </p>
-        </div>
-      `,
-    });
+await sendEmail({
+  to:   email,
+  code: verifyCode,
+});
 
     res.status(200).json({ message: "Verification code sent", email });
   } catch (err) {
