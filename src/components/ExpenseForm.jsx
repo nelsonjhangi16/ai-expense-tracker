@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { FaPlus } from "react-icons/fa";
 import { categorizeExpense } from "../utils/categorizeExpense";
+import { useApp } from "../context/AppContext";
 
 function ExpenseForm({ addExpense }) {
+  const { expenses } = useApp();
 
   // ── LIVE CURRENT DATE TIME ──
   const getCurrentDateTime = () => {
@@ -48,9 +50,9 @@ function ExpenseForm({ addExpense }) {
 
     let updatedForm = { ...form, [name]: value };
 
-    // AI AUTO CATEGORY
+    // AI AUTO CATEGORY — learns from your past expenses
     if (name === "title") {
-      updatedForm.category = categorizeExpense(value);
+      updatedForm.category = categorizeExpense(value, expenses);
     }
 
     setForm(updatedForm);
@@ -59,7 +61,7 @@ function ExpenseForm({ addExpense }) {
   const handleSubmit = () => {
     if (!form.title || !form.amount) return;
 
-    const aiCategory = categorizeExpense(form.title);
+    const aiCategory = categorizeExpense(form.title, expenses);
 
     addExpense({
       title:       form.title,
