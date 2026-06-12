@@ -1,6 +1,6 @@
 const https = require("https");
 
-const sendEmail = async ({ to, code }) => {
+const sendEmail = async ({ to, code, resetUrl }) => {
   const data = JSON.stringify({
     service_id:  "service_d8r9ryp",
     template_id: "j99vhey",
@@ -8,8 +8,8 @@ const sendEmail = async ({ to, code }) => {
     accessToken: "Lu7S0MKP3hx2GtbdZsf0w",
     template_params: {
       email:    to,
-      passcode: code,
-      time:     new Date(Date.now() + 10 * 60 * 1000).toLocaleString(),
+      passcode: code || resetUrl,
+      time:     new Date(Date.now() + 15 * 60 * 1000).toLocaleString(),
     },
   });
 

@@ -175,30 +175,10 @@ router.post("/forgot-password", async (req, res) => {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    await sendEmail({
-      to:      user.email,
-      subject: "Reset Your Expense Tracker Password",
-      html: `
-        <div style="font-family: sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
-          <h2 style="color: #6366f1; margin-bottom: 8px;">Reset Your Password</h2>
-          <p style="color: #64748b; margin-bottom: 24px;">
-            You requested a password reset for your Expense Tracker account.
-            Click the button below to set a new password.
-          </p>
-          <a href="${resetUrl}"
-            style="display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white; text-decoration: none; border-radius: 10px; font-weight: 600; font-size: 15px;">
-            Reset Password
-          </a>
-          <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">
-            This link expires in 15 minutes. If you didn't request this, ignore this email.
-          </p>
-          <p style="color: #94a3b8; font-size: 12px;">
-            Or copy this link: <br/>${resetUrl}
-          </p>
-        </div>
-      `,
-    });
+await sendEmail({
+  to:       user.email,
+  resetUrl: resetUrl,
+});
 
     res.json({ message: "If that email exists, a reset link has been sent" });
   } catch (err) {
