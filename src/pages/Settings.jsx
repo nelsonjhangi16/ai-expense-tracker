@@ -238,11 +238,12 @@ function CurrencyDropdown({ value, valueCode, onChange }) {
 function Settings({ toast }) {
 
   const { theme, toggleTheme }                  = useTheme();
-  const { settings, setSettings, expenses,
-          incomes, budgets, fmt }                = useApp();
+  const { settings, setSettings, expenses, setExpenses,
+          incomes, setIncomes, budgets, setBudgets, fmt } = useApp();
   const { user, updateProfile }                 = useAuth();
 
   const [saved,          setSaved]          = useState(false);
+  const [converting,     setConverting]     = useState(false);
   const [profileForm,    setProfileForm]    = useState({
     name:  user?.name  || "",
     email: user?.email || "",
@@ -254,6 +255,9 @@ function Settings({ toast }) {
   const [pwMsg,          setPwMsg]          = useState("");
   const [showPw,         setShowPw]         = useState(false);
 
+  const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
+
+  // ── SYNC profile form when user loads ──
   useEffect(() => {
     if (user) {
       setProfileForm({ name: user.name || "", email: user.email || "" });
@@ -273,6 +277,7 @@ function Settings({ toast }) {
 
   const set = (key, value) => setSettings((prev) => ({ ...prev, [key]: value }));
 
+  // ── SAVE PROFILE ──
   const saveProfile = async () => {
     setProfileLoading(true);
     setProfileMsg("");
@@ -289,16 +294,20 @@ function Settings({ toast }) {
     setProfileLoading(false);
   };
 
+  // ── CHANGE PASSWORD ──
   const changePassword = async () => {
     setPwMsg("");
     if (!pwForm.current || !pwForm.newPw || !pwForm.confirm) {
-      setPwMsg("All fields required"); return;
+      setPwMsg("All fields required");
+      return;
     }
     if (pwForm.newPw !== pwForm.confirm) {
-      setPwMsg("Passwords do not match"); return;
+      setPwMsg("Passwords do not match");
+      return;
     }
     if (pwForm.newPw.length < 6) {
-      setPwMsg("Password must be at least 6 characters"); return;
+      setPwMsg("Password must be at least 6 characters");
+      return;
     }
     setPwLoading(true);
     const { changePasswordAPI } = await import("../services/api");
@@ -366,7 +375,8 @@ function Settings({ toast }) {
               </span>
             </div>
           </div>
-<div className="setting-item" style={{ marginTop: 18 }}>
+
+          <div className="setting-item" style={{ marginTop: 18 }}>
             <label>Full Name</label>
             <div className="setting-input-wrap">
               <User size={13} className="setting-input-icon" />
@@ -402,7 +412,9 @@ function Settings({ toast }) {
             disabled={profileLoading}
             style={{ marginTop: 14, width: "100%", justifyContent: "center" }}
           >
-            {profileLoading ? "Saving..." : <><Save size={14} /> Update Profile</>}
+            {profileLoading
+              ? "Saving..."
+              : <><Save size={14} /> Update Profile</>}
           </button>
 
           {profileMsg === "success" && (
@@ -416,20 +428,80 @@ function Settings({ toast }) {
             </p>
           )}
         </div>
-        
+
         {/* FINANCE */}
-        <div className="settings-card settings-finance-center">
+        <div className="settings-card settings-finance-center" style={{ position: "relative" }}>
           <div className="settings-card-title"><DollarSign size={15} />Finance</div>
+
+          {converting && (
+            <div style={{
+              position: "absolute", inset: 0, zIndex: 10,
+              background: "var(--card-bg)", opacity: 0.95,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              borderRadius: 16, gap: 10,
+            }}>
+              <div style={{
+                width: 32, height: 32,
+                border: "3px solid rgba(99,102,241,0.2)",
+                borderTop: "3px solid #6366f1",
+                borderRadius: "50%",
+                animation: "spin 0.8s linear infinite",
+              }} />
+              <p style={{ fontSize: 13, fontWeight: 600, color: "var(--text)", margin: 0 }}>
+                Converting all amounts...
+              </p>
+            </div>
+          )}
 
           <div className="setting-item">
             <label>Currency</label>
             <CurrencyDropdown
               value={settings.currency}
               valueCode={settings.currencyCode || "USD"}
-              onChange={(c) => {
+              onChange={async (c) => {
+                const fromCode = settings.currencyCode || "USD";
+                const toCode   = c.code;
+
+                // Same currency — just update display (no conversion needed)
+                if (fromCode === toCode) {
+                  set("currency", c.symbol);
+                  set("flag",     c.flag);
+                  return;
+                }
+
+                setConverting(true);
+                try {
+                  const res  = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
+                  const data = await res.json();
+                  const rate = data?.rates?.[toCode];
+
+                  if (!rate) {
+                    toast?.({ message: `⚠️ Exchange rate for ${toCode} not available — symbol changed only`, type: "warning" });
+                  } else {
+                    // Convert all stored amounts using the live exchange rate
+                    setExpenses(expenses.map((e) => ({ ...e, amount: round2(e.amount * rate) })));
+                    setIncomes(incomes.map((i)   => ({ ...i, amount: round2(i.amount * rate) })));
+                    setBudgets(budgets.map((b)   => ({ ...b, amount: round2(b.amount * rate) })));
+
+                    if (settings.monthlyBudget) {
+                      set("monthlyBudget", String(round2(Number(settings.monthlyBudget) * rate)));
+                    }
+
+                    toast?.({
+                      message: `✅ Converted to ${toCode} — 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`,
+                      type: "success",
+                    });
+                  }
+                } catch (err) {
+                  console.error("Currency conversion error:", err);
+                  toast?.({ message: "❌ Failed to fetch exchange rate — symbol changed only", type: "error" });
+                }
+
                 set("currency",     c.symbol);
                 set("currencyCode", c.code);
                 set("flag",         c.flag);
+                setConverting(false);
               }}
             />
             <p className="setting-hint">
@@ -449,7 +521,9 @@ function Settings({ toast }) {
               />
             </div>
             {settings.monthlyBudget && (
-              <p className="setting-hint">Goal: <b>{fmt(Number(settings.monthlyBudget))}</b></p>
+              <p className="setting-hint">
+                Goal: <b>{fmt(Number(settings.monthlyBudget))}</b>
+              </p>
             )}
           </div>
         </div>
@@ -651,7 +725,9 @@ function Settings({ toast }) {
             disabled={pwLoading}
             style={{ width: "100%", justifyContent: "center" }}
           >
-            {pwLoading ? "Updating..." : <><Shield size={14} /> Change Password</>}
+            {pwLoading
+              ? "Updating..."
+              : <><Shield size={14} /> Change Password</>}
           </button>
 
           {pwMsg === "success" && (
