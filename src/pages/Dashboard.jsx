@@ -196,13 +196,17 @@ const combinedData = useMemo(() => {
   const COLORS = ["#6366f1","#22c55e","#f59e0b","#ef4444","#06b6d4","#8b5cf6","#f97316","#ec4899"];
 
   const budgetChartData = useMemo(() => {
-    return budgets.map((b) => {
-      const spent = dateFilteredExpenses
-        .filter((e) => e.category?.toLowerCase().trim() === b.category?.toLowerCase().trim())
-        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
-      return { category: b.category, Budget: b.amount, Spent: spent };
-    });
-  }, [dateFilteredExpenses, budgets]);
+  const now = new Date();
+  const currentMonthBudgets = budgets.filter(
+    (b) => b.month === now.getMonth() && b.year === now.getFullYear()
+  );
+  return currentMonthBudgets.map((b) => {
+    const spent = dateFilteredExpenses
+      .filter((e) => e.category?.toLowerCase().trim() === b.category?.toLowerCase().trim())
+      .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    return { category: b.category, Budget: b.amount, Spent: spent };
+  });
+}, [dateFilteredExpenses, budgets]);
 
   return (
     <div className={`dashboard ${theme}`}>

@@ -4505,3 +4505,111 @@ body, .stat-card, .chart-card, .expense-card, button, input, .main-content {
   margin-bottom: 16px;
   text-align: center;
 }
+
+
+
+
+/* ================= BUDGET MONTH SELECTOR ================= */
+
+.budget-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 20px;
+}
+
+.bud-month-nav {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.bud-month-nav:hover {
+  background: rgba(99,102,241,0.1);
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.bud-month-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 200px;
+  text-align: center;
+}
+
+.bud-month-label > span:first-child {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.bud-current-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #22c55e;
+  background: rgba(34,197,94,0.1);
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.bud-back-current {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6366f1;
+  background: rgba(99,102,241,0.1);
+  border: none;
+  padding: 4px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.bud-back-current:hover {
+  background: rgba(99,102,241,0.2);
+}
+
+/* ── COPY BUTTON ── */
+.bud-copy-btn {
+  margin-top: 12px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+}
+
+.bud-copy-btn:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+  background: rgba(99,102,241,0.06);
+}
+
+@media (max-width: 480px) {
+  .budget-month-selector { padding: 10px 12px; gap: 8px; }
+  .bud-month-label { min-width: 140px; }
+  .bud-month-label > span:first-child { font-size: 14px; }
+}
