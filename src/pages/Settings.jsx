@@ -113,6 +113,12 @@ const DEFAULT_SETTINGS = {
   monthlyBudget: "", notifications: true, flag: "🇺🇸",
 };
 
+// const currencyCodeRef = useRef(settings.currencyCode || "USD");
+
+// useEffect(() => {
+//   currencyCodeRef.current = settings.currencyCode || "USD";
+// }, [settings.currencyCode]);
+
 // ================= CURRENCY DROPDOWN =================
 function CurrencyDropdown({ value, valueCode, onChange }) {
   const [open,    setOpen]    = useState(false);
@@ -244,6 +250,13 @@ function Settings({ toast }) {
 
   const [saved,          setSaved]          = useState(false);
   const [converting,     setConverting]     = useState(false);
+
+  const currencyCodeRef = useRef(settings.currencyCode || "USD");
+
+useEffect(() => {
+  currencyCodeRef.current = settings.currencyCode || "USD";
+}, [settings.currencyCode]);
+
   const [profileForm,    setProfileForm]    = useState({
     name:  user?.name  || "",
     email: user?.email || "",
@@ -457,53 +470,56 @@ function Settings({ toast }) {
           <div className="setting-item">
             <label>Currency</label>
             <CurrencyDropdown
-              value={settings.currency}
-              valueCode={settings.currencyCode || "USD"}
-              onChange={async (c) => {
-                const fromCode = settings.currencyCode || "USD";
-                const toCode   = c.code;
+  value={settings.currency}
+  valueCode={settings.currencyCode || "USD"}
+  onChange={async (c) => {
+    const fromCode = currencyCodeRef.current;
+    const toCode   = c.code;
 
-                // Same currency — just update display (no conversion needed)
-                if (fromCode === toCode) {
-                  set("currency", c.symbol);
-                  set("flag",     c.flag);
-                  return;
-                }
+    // Same currency — just update display (no conversion needed)
+    if (fromCode === toCode) {
+      set("currency", c.symbol);
+      set("flag",     c.flag);
+      return;
+    }
 
-                setConverting(true);
-                try {
-                  const res  = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
-                  const data = await res.json();
-                  const rate = data?.rates?.[toCode];
+    setConverting(true);
+    try {
+      const res  = await fetch(`https://open.er-api.com/v6/latest/${fromCode}`);
+      const data = await res.json();
+      const rate = data?.rates?.[toCode];
 
-                  if (!rate) {
-                    toast?.({ message: `⚠️ Exchange rate for ${toCode} not available — symbol changed only`, type: "warning" });
-                  } else {
-                    // Convert all stored amounts using the live exchange rate
-                    setExpenses(expenses.map((e) => ({ ...e, amount: round2(e.amount * rate) })));
-                    setIncomes(incomes.map((i)   => ({ ...i, amount: round2(i.amount * rate) })));
-                    setBudgets(budgets.map((b)   => ({ ...b, amount: round2(b.amount * rate) })));
+      if (!rate) {
+        toast?.({ message: `⚠️ Exchange rate for ${toCode} not available — symbol changed only`, type: "warning" });
+      } else {
+        // Convert all stored amounts using the live exchange rate
+        setExpenses(expenses.map((e) => ({ ...e, amount: round2(e.amount * rate) })));
+        setIncomes(incomes.map((i)   => ({ ...i, amount: round2(i.amount * rate) })));
+        setBudgets(budgets.map((b)   => ({ ...b, amount: round2(b.amount * rate) })));
 
-                    if (settings.monthlyBudget) {
-                      set("monthlyBudget", String(round2(Number(settings.monthlyBudget) * rate)));
-                    }
+        if (settings.monthlyBudget) {
+          set("monthlyBudget", String(round2(Number(settings.monthlyBudget) * rate)));
+        }
 
-                    toast?.({
-                      message: `✅ Converted to ${toCode} — 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`,
-                      type: "success",
-                    });
-                  }
-                } catch (err) {
-                  console.error("Currency conversion error:", err);
-                  toast?.({ message: "❌ Failed to fetch exchange rate — symbol changed only", type: "error" });
-                }
+        toast?.({
+          message: `✅ Converted to ${toCode} — 1 ${fromCode} = ${rate.toFixed(4)} ${toCode}`,
+          type: "success",
+        });
+      }
+    } catch (err) {
+      console.error("Currency conversion error:", err);
+      toast?.({ message: "❌ Failed to fetch exchange rate — symbol changed only", type: "error" });
+    }
 
-                set("currency",     c.symbol);
-                set("currencyCode", c.code);
-                set("flag",         c.flag);
-                setConverting(false);
-              }}
-            />
+    // Update ref immediately so rapid subsequent conversions use correct fromCode
+    currencyCodeRef.current = toCode;
+
+    set("currency",     c.symbol);
+    set("currencyCode", c.code);
+    set("flag",         c.flag);
+    setConverting(false);
+  }}
+/>
             <p className="setting-hint">
               Preview: <b>{settings.currency}1,000.00</b> · Updates everywhere instantly
             </p>
