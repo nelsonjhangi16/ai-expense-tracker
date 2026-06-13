@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useApp } from "../context/AppContext";
 import SmartInsightsPanel from "../components/SmartInsightsPanel";
 import EmptyState from "../components/EmptyState";
@@ -124,6 +124,95 @@ function Dashboard() {
     dateFilteredIncomes.reduce((sum, i) => sum + Number(i.amount || 0), 0),
     [dateFilteredIncomes]
   );
+
+
+  // ================= PREVIOUS MONTH CARRYOVER =================
+  const prevMonthSavings = useMemo(() => {
+    if (dateFilter !== "month") return 0; // only relevant in "This Month" view
+
+    const now = new Date();
+    const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const prevYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+    const prevIncome = incomes
+      .filter((i) => {
+        if (!i.date) return false;
+        const d = new Date(i.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      })
+      .reduce((s, i) => s + Number(i.amount || 0), 0);
+
+    const prevExpenses = expenses
+      .filter((e) => {
+        if (!e.date) return false;
+        const d = new Date(e.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      })
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    const saved = prevIncome - prevExpenses;
+    return saved > 0 ? saved : 0;
+  }, [incomes, expenses, dateFilter]);
+
+
+  // ================= PREVIOUS MONTH SAVINGS NOTIFICATION =================
+  useEffect(() => {
+    const now = new Date();
+    const currentKey = `${now.getFullYear()}-${now.getMonth()}`;
+    const lastChecked = localStorage.getItem("lastDashboardMonthCheck");
+
+    if (lastChecked === currentKey) return;
+
+    const prevMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const prevYear  = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+
+    const prevIncome = incomes
+      .filter((i) => {
+        if (!i.date) return false;
+        const d = new Date(i.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      })
+      .reduce((s, i) => s + Number(i.amount || 0), 0);
+
+    const prevExpenses = expenses
+      .filter((e) => {
+        if (!e.date) return false;
+        const d = new Date(e.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+      })
+      .reduce((s, e) => s + Number(e.amount || 0), 0);
+
+    const saved = prevIncome - prevExpenses;
+
+    // Only notify if there was actual income/expense activity last month
+    if (prevIncome > 0 || prevExpenses > 0) {
+      const existing = JSON.parse(localStorage.getItem("notifications")) || [];
+      const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+      const key = `net-balance-carryover-${prevYear}-${prevMonth}`;
+
+      if (!existing.find((n) => n.key === key)) {
+        const updated = [...existing];
+        if (saved > 0) {
+          updated.unshift({
+            id: Date.now() + Math.random(),
+            key, category: "Net Balance", level: 0, type: "info",
+            message: `💰 You saved ${fmt(saved)} in ${monthNames[prevMonth]} — it's been added to your Net Balance.`,
+            time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+          });
+        } else if (saved < 0) {
+          updated.unshift({
+            id: Date.now() + Math.random(),
+            key, category: "Net Balance", level: 0, type: "warning",
+            message: `⚠️ Your expenses exceeded income by ${fmt(Math.abs(saved))} in ${monthNames[prevMonth]}.`,
+            time: new Date().toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+          });
+        }
+        localStorage.setItem("notifications", JSON.stringify(updated));
+      }
+    }
+
+    localStorage.setItem("lastDashboardMonthCheck", currentKey);
+  }, [incomes, expenses]);
 
   // ================= CATEGORY DATA =================
   const categoryData = useMemo(() => {
@@ -282,17 +371,22 @@ const combinedData = useMemo(() => {
     </div>
     <h2>{fmt(total)}</h2>
   </div>
-  <div className="stat-card">
-    <div className="stat-card-header">
-      <h3>Net Balance</h3>
-      <span className={`stat-arrow ${totalIncome - total >= 0 ? "income-arrow" : "expense-arrow"}`}>
-        {totalIncome - total >= 0 ? "↑" : "↓"}
-      </span>
-    </div>
-    <h2 style={{ color: totalIncome - total >= 0 ? "#22c55e" : "#ef4444" }}>
-      {totalIncome - total >= 0 ? "+" : "-"}{fmt(Math.abs(totalIncome - total))}
-    </h2>
-  </div>
+<div className="stat-card">
+              <div className="stat-card-header">
+                <h3>Net Balance</h3>
+                <span className={`stat-arrow ${(totalIncome - total + prevMonthSavings) >= 0 ? "income-arrow" : "expense-arrow"}`}>
+                  {(totalIncome - total + prevMonthSavings) >= 0 ? "↑" : "↓"}
+                </span>
+              </div>
+              <h2 style={{ color: (totalIncome - total + prevMonthSavings) >= 0 ? "#22c55e" : "#ef4444" }}>
+                {(totalIncome - total + prevMonthSavings) >= 0 ? "+" : "-"}{fmt(Math.abs(totalIncome - total + prevMonthSavings))}
+              </h2>
+              {prevMonthSavings > 0 && (
+                <p style={{ fontSize: 11, color: "#22c55e", margin: "4px 0 0", fontWeight: 600 }}>
+                  Includes {fmt(prevMonthSavings)} saved last month
+                </p>
+              )}
+            </div>
   <div className="stat-card">
     <h3>Transactions</h3>
     <h2>{filteredExpenses.length}</h2>
