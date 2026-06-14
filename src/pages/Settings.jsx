@@ -801,14 +801,30 @@ useEffect(() => {
               : "Data is stored locally. Login to enable cloud sync."}
           </p>
 
-          <button
+         <button
             className="settings-danger-btn"
-            onClick={() => {
-              if (window.confirm("Clear ALL data? This cannot be undone.")) {
-                localStorage.clear();
-                toast?.({ message: "🗑 All data cleared", type: "error" });
-                window.location.reload();
+            onClick={async () => {
+              if (!window.confirm("Clear ALL expenses, income, and budgets? This cannot be undone.")) return;
+
+              setExpenses([]);
+              setIncomes([]);
+              setBudgets([]);
+
+              if (user) {
+                try {
+                  const { saveDataAPI } = await import("../services/api");
+                  await saveDataAPI({ expenses: [], incomes: [], budgets: [] });
+                } catch (err) {
+                  console.error("Failed to clear cloud data:", err);
+                }
+              } else {
+                localStorage.removeItem("expenses");
+                localStorage.removeItem("incomes");
+                localStorage.removeItem("budgets");
               }
+
+              localStorage.removeItem("notifications");
+              toast?.({ message: "🗑 All data cleared", type: "error" });
             }}
           >
             <Trash2 size={14} /> Clear All Data
