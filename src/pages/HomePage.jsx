@@ -362,7 +362,7 @@ function HomePage() {
           <LayoutDashboard size={18} />
           <span>Expense <b>Tracker</b></span>
         </div>
-        <p>© 2026 Expense Tracker. Built with ❤️ for better financial health.</p>
+        <p>© 2026 Expense Tracker.</p>
         <div className="home-footer-links">
           <button onClick={() => navigate("/login")}>Login</button>
           <button onClick={() => navigate("/register")}>Register</button>
